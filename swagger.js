@@ -11,7 +11,7 @@ const options = {
     },
     servers: [
       {
-        url: "/",
+        url: "https://airline-midterm-g7b4btgfguecbwat.francecentral-01.azurewebsites.net",
         description: "API Gateway"
       }
     ],
