@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors"); // 🔥 EKLENDİ
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
 
@@ -8,17 +9,38 @@ const notFoundHandler = require("./src/middleware/notFoundHandler");
 
 const authRoutes = require("./src/routes/v1/authRoutes");
 
-// 🔥 YENİ EKLENENLER
+// 🔥 GATEWAY
 const { gateway, queryFlightLimiter } = require("./src/middleware/gateway");
 
 const app = express();
 
+/**
+ * 🔥 CORS (EN ÜSTTE OLMALI)
+ */
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+/**
+ * 🔥 BODY PARSER
+ */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🔥 GLOBAL GATEWAY (tüm requestler buradan geçer)
+/**
+ * 🔥 GLOBAL GATEWAY
+ */
+app.use((req, res, next) => {
+  console.log("Gateway hit:", req.method, req.url);
+  next();
+});
 app.use(gateway);
 
+/**
+ * 🔥 HEALTH CHECK
+ */
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "SUCCESS",
@@ -26,17 +48,29 @@ app.get("/", (req, res) => {
   });
 });
 
+/**
+ * 🔥 SWAGGER
+ */
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// 🔥 AUTH (limit yok)
+/**
+ * 🔥 AUTH (NO LIMIT)
+ */
 app.use("/api/v1/auth", authRoutes);
 
-// 🔥 RATE LIMIT (SADECE BU ENDPOINT)
+/**
+ * 🔥 RATE LIMIT (SADECE QUERY)
+ */
 app.use("/api/v1/flights/query", queryFlightLimiter);
 
-// 🔥 TÜM ROUTES
+/**
+ * 🔥 MAIN ROUTES
+ */
 app.use("/api/v1", v1Routes);
 
+/**
+ * 🔥 ERROR HANDLERS
+ */
 app.use(notFoundHandler);
 app.use(errorHandler);
 
