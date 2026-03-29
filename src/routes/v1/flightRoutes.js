@@ -5,7 +5,6 @@ const flightController = require("../../controllers/flightController");
 const validate = require("../../middleware/validate");
 const auth = require("../../middleware/authMiddleware");
 
-const { queryFlightsLimiter } = require("../../middleware/rateLimiter");
 const { createFlightSchema } = require("../../dtos/request/flightSchemas");
 const { queryFlightsSchema } = require("../../dtos/request/querySchemas");
 
@@ -107,7 +106,6 @@ const upload = multer({ dest: "uploads/" });
  */
 router.get(
   "/flights/query",
-  queryFlightsLimiter,
   validate(queryFlightsSchema, "query"),
   flightController.queryFlights
 );

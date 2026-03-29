@@ -1,12 +1,16 @@
 const rateLimit = require("express-rate-limit");
 
-exports.queryFlightsLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000,
+const queryFlightLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 1 gün
   max: 3,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: {
-    status: "FAIL",
-    message: "Daily query limit exceeded (3)"
-  }
+    status: "ERROR",
+    message: "You can only query flights 3 times per day"
+  },
+  standardHeaders: true,
+  legacyHeaders: false
 });
+
+module.exports = {
+  queryFlightLimiter
+};
