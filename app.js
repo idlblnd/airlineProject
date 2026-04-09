@@ -1,5 +1,6 @@
 const express = require("express");
-const cors = require("cors"); // 🔥 EKLENDİ
+const cors = require("cors");
+const path = require("path");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
 
@@ -30,10 +31,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * 🔥 GLOBAL GATEWAY
+ * REQUEST LOGGER
  */
 app.use((req, res, next) => {
-  console.log("Gateway hit:", req.method, req.url);
+  console.log("API hit:", req.method, req.url);
   next();
 });
 app.use(gateway);
@@ -44,7 +45,7 @@ app.use(gateway);
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "SUCCESS",
-    message: "Airline API is running"
+    message: "Airline API service is running"
   });
 });
 
@@ -67,6 +68,14 @@ app.use("/api/v1/flights/query", queryFlightLimiter);
  * 🔥 MAIN ROUTES
  */
 app.use("/api/v1", v1Routes);
+
+/**
+ * 🔥 REACT CHAT UI
+ */
+app.use("/agent", express.static(path.join(__dirname, "public", "agent")));
+app.get("/agent/*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "agent", "index.html"));
+});
 
 /**
  * 🔥 ERROR HANDLERS

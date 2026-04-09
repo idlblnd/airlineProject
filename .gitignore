@@ -1,3 +1,6 @@
 node_modules/
 .env
 .env.*
+*.zip
+.DS_Store
+uploads/

@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const SECRET = "supersecretkey"; 
+const SECRET = process.env.JWT_SECRET || "change-me-in-production";
 
 exports.signToken = (payload) => {
   return jwt.sign(payload, SECRET, { expiresIn: "1h" });
