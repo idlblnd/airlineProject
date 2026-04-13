@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
@@ -30,12 +31,14 @@ app.get("/health", (req, res) => {
   });
 });
 
-// 🔥 AGENT UI → API'ye proxy
-app.use("/agent", createProxyMiddleware({
-  target: apiTarget,
-  changeOrigin: true,
-  logLevel: "warn"
-}));
+// 🔥 AGENT UI → gateway serves static frontend directly
+app.use("/agent", express.static(path.join(__dirname, "public", "agent")));
+app.get("/agent", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "agent", "index.html"));
+});
+app.get("/agent/*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "agent", "index.html"));
+});
 
 // 🔥 API ROUTES
 app.use("/api", createProxyMiddleware({
