@@ -19,7 +19,7 @@ app.use(cors({
 
 // 🔥 ROOT → AGENT
 app.get("/", (req, res) => {
-  res.redirect("/agent");
+  res.redirect("/agent/");
 });
 
 // 🔥 HEALTH CHECK
