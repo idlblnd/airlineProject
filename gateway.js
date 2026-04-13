@@ -5,7 +5,7 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
 const PORT = process.env.PORT || process.env.GATEWAY_PORT || 8080;
-const apiTarget = (process.env.API_TARGET_URL || "http://127.0.0.1:8080").replace(/\/$/, "");
+const apiTarget = (process.env.API_TARGET_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 
 app.use(cors({
   origin: "*",
