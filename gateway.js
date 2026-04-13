@@ -17,7 +17,21 @@ app.get("/", (req, res) => {
   res.status(200).json({
     status: "SUCCESS",
     message: "Airline gateway is running",
-    apiTarget
+    mode: "proxy",
+    apiTarget,
+    routes: {
+      swagger: "/api-docs",
+      swaggerAlias: "/swagger",
+      health: "/health",
+      apiBase: "/api/v1"
+    }
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "SUCCESS",
+    message: "Gateway health check passed"
   });
 });
 
@@ -38,6 +52,7 @@ const proxy = createProxyMiddleware({
 
 app.use("/api", proxy);
 app.use("/api-docs", proxy);
+app.use("/swagger", proxy);
 
 app.listen(PORT, () => {
   console.log(`Gateway running on port ${PORT}`);

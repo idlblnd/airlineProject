@@ -6,7 +6,8 @@
     "scripts": {
         "start": "node server.js",
         "gateway": "node gateway.js",
-        "dev": "nodemon server.js"
+        "dev": "nodemon server.js",
+        "dev:gateway": "nodemon gateway.js"
     },
     "dependencies": {
         "chart.js": "^4.5.1",
