@@ -51,26 +51,42 @@ const render = () => {
     <div class="shell">
       <aside class="sidebar">
         <p class="brand-kicker">SE4458 AI Agent</p>
+        <div class="sidebar-badge">Sky Assistant</div>
         <h1>Airline Copilot</h1>
         <p>
-          This chat UI talks to an agent backend, which lets the LLM choose MCP
-          tools that reach your flight APIs through the gateway.
+          Your holiday-themed flight assistant for planning routes, booking seats,
+          checking in passengers, and exploring flights through one calm travel dashboard.
         </p>
         <ul class="capability-list">
-          <li>Query available flights</li>
-          <li>Book tickets through authenticated gateway calls</li>
-          <li>Check in passengers</li>
-          <li>Stream chat updates in real time</li>
+          <li><span>Flight search</span><strong>Routes, dates, and seat capacity</strong></li>
+          <li><span>Ticket booking</span><strong>Protected gateway-backed purchase flow</strong></li>
+          <li><span>Check-in support</span><strong>Fast passenger processing</strong></li>
+          <li><span>Live updates</span><strong>Realtime stream for every response</strong></li>
         </ul>
+        <div class="travel-card">
+          <div class="travel-card-label">Popular prompts</div>
+          <p>"Find 2 seats from IST to ADB tomorrow morning"</p>
+          <p>"Check in Ayse Yilmaz for TK101 on 2026-04-20"</p>
+        </div>
       </aside>
       <main class="main">
         <section class="hero">
           <div class="hero-card">
-            <h2>Flight operations through an AI agent</h2>
-            <p>
-              Try messages like "Find 2 seats from IST to ADB on 2026-04-20" or
-              "Check in Ayse Yilmaz for TK101 on 2026-04-20."
-            </p>
+            <div class="hero-copy">
+              <p class="hero-kicker">Blue Sky Travel Desk</p>
+              <h2>Plan, book, and manage trips with an airline AI agent</h2>
+              <p>
+                Built for a lightweight vacation-style experience with fast airline actions,
+                live chat updates, and clean gateway-based API orchestration.
+              </p>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+              <div class="sun"></div>
+              <div class="cloud cloud-one"></div>
+              <div class="cloud cloud-two"></div>
+              <div class="plane-trail"></div>
+              <div class="plane">✈</div>
+            </div>
           </div>
         </section>
         <section class="chat-panel">
@@ -83,10 +99,11 @@ const render = () => {
           </div>
           <div class="messages" id="messages">${renderMessages()}</div>
           <div class="composer">
+            <div class="composer-title">Ask your flight assistant</div>
             <form id="composer-form">
               <textarea
                 id="composer-input"
-                placeholder="Ask to query flights, buy a ticket, check in, or see passengers..."
+                placeholder="Where would you like to fly today?"
                 ${state.isSending || !state.sessionId ? "disabled" : ""}
               >${escapeHtml(state.draft)}</textarea>
               <button type="submit" ${state.isSending || !state.sessionId ? "disabled" : ""}>
@@ -94,7 +111,7 @@ const render = () => {
               </button>
             </form>
             <div class="helper-row">
-              <div>Gateway-only calls, MCP tool mapping, and SSE chat refresh are active.</div>
+              <div>Gateway routing, MCP tool mapping, and live chat refresh are active.</div>
               <div class="error">${escapeHtml(state.error)}</div>
             </div>
           </div>

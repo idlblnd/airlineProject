@@ -44,20 +44,23 @@ app.get("/agent/*", (req, res) => {
 app.use("/api", createProxyMiddleware({
   target: apiTarget,
   changeOrigin: true,
-  logLevel: "warn"
+  logLevel: "warn",
+  pathRewrite: (path, req) => req.originalUrl
 }));
 
 // 🔥 SWAGGER
 app.use("/api-docs", createProxyMiddleware({
   target: apiTarget,
   changeOrigin: true,
-  logLevel: "warn"
+  logLevel: "warn",
+  pathRewrite: (path, req) => req.originalUrl
 }));
 
 app.use("/swagger", createProxyMiddleware({
   target: apiTarget,
   changeOrigin: true,
-  logLevel: "warn"
+  logLevel: "warn",
+  pathRewrite: (path, req) => req.originalUrl === "/swagger" ? "/api-docs" : req.originalUrl.replace(/^\/swagger/, "/api-docs")
 }));
 
 // 🔥 START
