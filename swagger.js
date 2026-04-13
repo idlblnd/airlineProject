@@ -1,5 +1,7 @@
 const swaggerJsDoc = require("swagger-jsdoc");
 
+const publicBaseUrl = process.env.PUBLIC_BASE_URL || "http://localhost:3000";
+
 const options = {
   definition: {
     openapi: "3.0.0",
@@ -11,8 +13,8 @@ const options = {
     },
     servers: [
       {
-        url: "https://airline-midterm-g7b4btgfguecbwat.francecentral-01.azurewebsites.net",
-        description: "API Gateway"
+        url: publicBaseUrl,
+        description: "AWS deployment base URL"
       }
     ],
 

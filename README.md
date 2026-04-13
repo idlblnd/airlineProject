@@ -40,7 +40,7 @@ The system is designed using a **layered architecture** to ensure separation of 
 
 ## ⚠️ Issues Encountered
 
-- API Gateway rate limiting configuration errors in Azure
+- API Gateway routing and rate limiting configuration issues during cloud deployment
 - Database column naming mismatches during query development
 - Swagger documentation inconsistencies
 - Performance degradation in write operations under high load
@@ -56,7 +56,17 @@ The system is designed using a **layered architecture** to ensure separation of 
 
 ## 📄 API Documentation
 
-Deployed Swagger URL: https://airline-midterm-g7b4btgfguecbwat.francecentral-01.azurewebsites.net/api-docs/
+Deployed Swagger URL:
+
+```text
+http://<>:8080/api-docs
+```
+
+AI Frontend URL:
+
+```text
+http://<>:8080/
+```
 
 ---
 
@@ -144,5 +154,4 @@ To improve scalability, database indexing, caching mechanisms (e.g., Redis), con
 
 ## DEMO
 https://drive.google.com/file/d/1RjGHbWgO9EtZMmdz8WPp3VRge0h3NciO/view?usp=share_link
-
 
