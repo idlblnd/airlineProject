@@ -39,10 +39,11 @@ app.use((req, res, next) => {
 });
 app.use(gateway);
 
-/**
- * 🔥 HEALTH CHECK
- */
 app.get("/", (req, res) => {
+  res.redirect("/agent/");
+});
+
+app.get("/health", (req, res) => {
   res.status(200).json({
     status: "SUCCESS",
     message: "Airline API service is running"
