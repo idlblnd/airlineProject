@@ -35,114 +35,28 @@ body {
 }
 
 .shell {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  display: block;
   min-height: 100vh;
-}
-
-.sidebar {
-  padding: 36px 26px;
-  border-right: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(234, 246, 255, 0.86));
-  backdrop-filter: blur(18px);
-}
-
-.sidebar-badge {
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: 14px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  color: var(--brand-deep);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(13, 79, 139, 0.1);
-}
-
-.brand-kicker {
-  margin: 0 0 12px;
-  color: var(--brand);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.sidebar h1 {
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 42px;
-  line-height: 0.98;
-}
-
-.sidebar p {
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.capability-list {
-  margin: 24px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.capability-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
-  padding: 14px 15px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.68);
-}
-
-.capability-list span {
-  font-weight: 700;
-}
-
-.capability-list strong {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.travel-card {
-  margin-top: 26px;
-  padding: 16px;
-  border-radius: 22px;
-  color: white;
-  background:
-    linear-gradient(145deg, rgba(0, 119, 182, 0.95), rgba(13, 79, 139, 0.92));
-  box-shadow: 0 20px 35px rgba(0, 78, 128, 0.22);
-}
-
-.travel-card-label {
-  margin-bottom: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-.travel-card p {
-  margin: 0 0 10px;
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.5;
 }
 
 .main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.main-full {
+  width: 100%;
 }
 
 .hero {
   padding: 34px 38px 18px;
+}
+
+.hero-compact {
+  padding-bottom: 14px;
 }
 
 .hero-card {
@@ -159,6 +73,10 @@ body {
   overflow: hidden;
 }
 
+.hero-single {
+  align-items: center;
+}
+
 .hero-kicker {
   margin: 0 0 10px;
   color: var(--brand);
@@ -166,6 +84,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
+}
+
+.hero-card h1 {
+  margin: 0 0 10px;
+  max-width: 12ch;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 40px;
+  line-height: 1.02;
 }
 
 .hero-card h2 {
@@ -285,6 +211,43 @@ body {
   background: var(--panel);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.prompt-strip {
+  padding: 16px 20px 6px;
+  border-bottom: 1px solid rgba(32, 93, 151, 0.08);
+  background: rgba(247, 252, 255, 0.86);
+}
+
+.prompt-title {
+  margin-bottom: 10px;
+  color: var(--brand-deep);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.prompt-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.prompt-chip {
+  border: 1px solid rgba(0, 119, 182, 0.14);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: var(--brand-deep);
+  font: inherit;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.prompt-chip:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(18, 48, 79, 0.08);
 }
 
 .status-bar {
@@ -444,15 +407,6 @@ body {
 }
 
 @media (max-width: 920px) {
-  .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
   .hero,
   .chat-panel {
     margin-left: 18px;
@@ -479,5 +433,18 @@ body {
 
   .composer button {
     width: 100%;
+  }
+
+  .hero-card h1 {
+    font-size: 32px;
+  }
+
+  .prompt-list {
+    flex-direction: column;
+  }
+
+  .prompt-chip {
+    width: 100%;
+    text-align: left;
   }
 }

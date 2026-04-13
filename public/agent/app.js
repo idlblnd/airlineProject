@@ -8,6 +8,12 @@ const state = {
 };
 
 const root = document.getElementById("root");
+const quickPrompts = [
+  "Find 2 seats from IST to ADB on 2026-04-20",
+  "Book a ticket for Ayse Yilmaz on TK101 for 2026-04-20",
+  "Check in Ayse Yilmaz for TK101 on 2026-04-20",
+  "Show checked-in passengers for TK101 on 2026-04-20"
+];
 
 const getMessageLabel = (message) => {
   if (message.role === "tool") {
@@ -47,37 +53,27 @@ const renderMessages = () =>
     .join("");
 
 const render = () => {
+  const promptMarkup = quickPrompts
+    .map(
+      (prompt) => `
+        <button class="prompt-chip" type="button" data-prompt="${escapeHtml(prompt)}">
+          ${escapeHtml(prompt)}
+        </button>
+      `
+    )
+    .join("");
+
   root.innerHTML = `
     <div class="shell">
-      <aside class="sidebar">
-        <p class="brand-kicker">SE4458 AI Agent</p>
-        <div class="sidebar-badge">Sky Assistant</div>
-        <h1>Airline Copilot</h1>
-        <p>
-          Your holiday-themed flight assistant for planning routes, booking seats,
-          checking in passengers, and exploring flights through one calm travel dashboard.
-        </p>
-        <ul class="capability-list">
-          <li><span>Flight search</span><strong>Routes, dates, and seat capacity</strong></li>
-          <li><span>Ticket booking</span><strong>Protected gateway-backed purchase flow</strong></li>
-          <li><span>Check-in support</span><strong>Fast passenger processing</strong></li>
-          <li><span>Live updates</span><strong>Realtime stream for every response</strong></li>
-        </ul>
-        <div class="travel-card">
-          <div class="travel-card-label">Popular prompts</div>
-          <p>"Find 2 seats from IST to ADB tomorrow morning"</p>
-          <p>"Check in Ayse Yilmaz for TK101 on 2026-04-20"</p>
-        </div>
-      </aside>
-      <main class="main">
-        <section class="hero">
-          <div class="hero-card">
+      <main class="main main-full">
+        <section class="hero hero-compact">
+          <div class="hero-card hero-single">
             <div class="hero-copy">
               <p class="hero-kicker">Blue Sky Travel Desk</p>
-              <h2>Plan, book, and manage trips with an airline AI agent</h2>
+              <h1>Airline AI Agent</h1>
               <p>
-                Built for a lightweight vacation-style experience with fast airline actions,
-                live chat updates, and clean gateway-based API orchestration.
+                Tell me where you want to go, who is flying, or who needs check-in.
+                I can search flights, book tickets, and manage passengers in one chat.
               </p>
             </div>
             <div class="hero-visual" aria-hidden="true">
@@ -96,6 +92,10 @@ const render = () => {
               ${state.sessionId ? "Connected" : "Starting session"}
             </div>
             <div>${state.sessionId ? `Session ${escapeHtml(state.sessionId.slice(0, 8))}` : "Preparing"}</div>
+          </div>
+          <div class="prompt-strip">
+            <div class="prompt-title">Try asking:</div>
+            <div class="prompt-list">${promptMarkup}</div>
           </div>
           <div class="messages" id="messages">${renderMessages()}</div>
           <div class="composer">
@@ -116,13 +116,13 @@ const render = () => {
             </div>
           </div>
         </section>
-      </main>
     </div>
   `;
 
   const form = document.getElementById("composer-form");
   const input = document.getElementById("composer-input");
   const messages = document.getElementById("messages");
+  const promptButtons = document.querySelectorAll(".prompt-chip");
 
   if (form) {
     form.addEventListener("submit", sendMessage);
@@ -137,6 +137,14 @@ const render = () => {
   if (messages) {
     messages.scrollTop = messages.scrollHeight;
   }
+
+  promptButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.draft = button.dataset.prompt || "";
+      render();
+      document.getElementById("composer-input")?.focus();
+    });
+  });
 };
 
 const connectStream = () => {
