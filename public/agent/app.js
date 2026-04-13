@@ -1,247 +1,226 @@
-import React, { useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18";
-import { createRoot } from "https://esm.sh/react-dom@18/client";
+const state = {
+  sessionId: "",
+  messages: [],
+  draft: "",
+  isSending: false,
+  error: "",
+  eventSource: null
+};
 
-const h = React.createElement;
+const root = document.getElementById("root");
 
-function MessageCard({ message }) {
-  const label = useMemo(() => {
-    if (message.role === "tool") {
-      return message.metadata?.toolName || "Tool";
-    }
+const getMessageLabel = (message) => {
+  if (message.role === "tool") {
+    return message.metadata?.toolName || "Tool";
+  }
 
-    if (message.role === "assistant") {
-      return "Agent";
-    }
+  if (message.role === "assistant") {
+    return "Agent";
+  }
 
-    return "You";
-  }, [message]);
+  return "You";
+};
 
-  return h(
-    "article",
-    { className: `message ${message.role}` },
-    h("div", { className: "message-label" }, label),
-    message.role === "tool"
-      ? h("pre", null, message.content)
-      : h("div", null, message.content)
-  );
-}
+const escapeHtml = (value) =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 
-function App() {
-  const [sessionId, setSessionId] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState("");
-  const messagesRef = useRef(null);
-  const eventSourceRef = useRef(null);
+const renderMessages = () =>
+  state.messages
+    .map((message) => {
+      const content =
+        message.role === "tool"
+          ? `<pre>${escapeHtml(message.content)}</pre>`
+          : `<div>${escapeHtml(message.content)}</div>`;
 
-  useEffect(() => {
-    let isMounted = true;
+      return `
+        <article class="message ${escapeHtml(message.role)}">
+          <div class="message-label">${escapeHtml(getMessageLabel(message))}</div>
+          ${content}
+        </article>
+      `;
+    })
+    .join("");
 
-    const bootstrap = async () => {
-      const response = await fetch("/api/v1/agent/sessions", {
-        method: "POST"
-      });
+const render = () => {
+  root.innerHTML = `
+    <div class="shell">
+      <aside class="sidebar">
+        <p class="brand-kicker">SE4458 AI Agent</p>
+        <h1>Airline Copilot</h1>
+        <p>
+          This chat UI talks to an agent backend, which lets the LLM choose MCP
+          tools that reach your flight APIs through the gateway.
+        </p>
+        <ul class="capability-list">
+          <li>Query available flights</li>
+          <li>Book tickets through authenticated gateway calls</li>
+          <li>Check in passengers</li>
+          <li>Stream chat updates in real time</li>
+        </ul>
+      </aside>
+      <main class="main">
+        <section class="hero">
+          <div class="hero-card">
+            <h2>Flight operations through an AI agent</h2>
+            <p>
+              Try messages like "Find 2 seats from IST to ADB on 2026-04-20" or
+              "Check in Ayse Yilmaz for TK101 on 2026-04-20."
+            </p>
+          </div>
+        </section>
+        <section class="chat-panel">
+          <div class="status-bar">
+            <div class="status-pill">
+              <span class="dot"></span>
+              ${state.sessionId ? "Connected" : "Starting session"}
+            </div>
+            <div>${state.sessionId ? `Session ${escapeHtml(state.sessionId.slice(0, 8))}` : "Preparing"}</div>
+          </div>
+          <div class="messages" id="messages">${renderMessages()}</div>
+          <div class="composer">
+            <form id="composer-form">
+              <textarea
+                id="composer-input"
+                placeholder="Ask to query flights, buy a ticket, check in, or see passengers..."
+                ${state.isSending || !state.sessionId ? "disabled" : ""}
+              >${escapeHtml(state.draft)}</textarea>
+              <button type="submit" ${state.isSending || !state.sessionId ? "disabled" : ""}>
+                ${state.isSending ? "Working..." : "Send"}
+              </button>
+            </form>
+            <div class="helper-row">
+              <div>Gateway-only calls, MCP tool mapping, and SSE chat refresh are active.</div>
+              <div class="error">${escapeHtml(state.error)}</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  `;
 
-      const payload = await response.json();
+  const form = document.getElementById("composer-form");
+  const input = document.getElementById("composer-input");
+  const messages = document.getElementById("messages");
 
-      if (!response.ok) {
-        throw new Error(payload.message || "Unable to create chat session");
-      }
+  if (form) {
+    form.addEventListener("submit", sendMessage);
+  }
 
-      if (!isMounted) {
-        return;
-      }
-
-      setSessionId(payload.id);
-      setMessages(payload.messages || []);
-    };
-
-    bootstrap().catch((err) => {
-      setError(err.message);
+  if (input) {
+    input.addEventListener("input", (event) => {
+      state.draft = event.target.value;
     });
+  }
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  if (messages) {
+    messages.scrollTop = messages.scrollHeight;
+  }
+};
 
-  useEffect(() => {
-    if (!sessionId) {
-      return undefined;
-    }
+const connectStream = () => {
+  if (!state.sessionId) {
+    return;
+  }
 
-    const eventSource = new EventSource(`/api/v1/agent/sessions/${sessionId}/stream`);
-    eventSourceRef.current = eventSource;
+  if (state.eventSource) {
+    state.eventSource.close();
+  }
 
-    eventSource.onmessage = (event) => {
-      const payload = JSON.parse(event.data);
+  const eventSource = new EventSource(`/api/v1/agent/sessions/${state.sessionId}/stream`);
+  state.eventSource = eventSource;
 
-      if (payload.type === "snapshot") {
-        setMessages(payload.session.messages || []);
-        return;
-      }
+  eventSource.onmessage = (event) => {
+    const payload = JSON.parse(event.data);
 
-      if (payload.type === "message") {
-        setMessages((current) => {
-          const exists = current.some((message) => message.id === payload.message.id);
-          return exists ? current : [...current, payload.message];
-        });
-      }
-    };
-
-    eventSource.onerror = () => {
-      setError("Realtime connection dropped. Refresh the page to reconnect.");
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (!messagesRef.current) {
+    if (payload.type === "snapshot") {
+      state.messages = payload.session.messages || [];
+      render();
       return;
     }
 
-    messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [messages]);
-
-  const sendMessage = async (event) => {
-    event.preventDefault();
-
-    if (!draft.trim() || !sessionId) {
-      return;
-    }
-
-    setIsSending(true);
-    setError("");
-
-    try {
-      const response = await fetch(`/api/v1/agent/sessions/${sessionId}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: draft.trim()
-        })
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.message || "Unable to send message");
+    if (payload.type === "message") {
+      const exists = state.messages.some((message) => message.id === payload.message.id);
+      if (!exists) {
+        state.messages = [...state.messages, payload.message];
+        render();
       }
-
-      setDraft("");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsSending(false);
     }
   };
 
-  return h(
-    "div",
-    { className: "shell" },
-    h(
-      "aside",
-      { className: "sidebar" },
-      h("p", { className: "brand-kicker" }, "SE4458 AI Agent"),
-      h("h1", null, "Airline Copilot"),
-      h(
-        "p",
-        null,
-        "This React chat UI talks to an agent backend, which lets the LLM choose MCP tools that reach your flight APIs through the gateway."
-      ),
-      h(
-        "ul",
-        { className: "capability-list" },
-        h("li", null, "Query available flights"),
-        h("li", null, "Book tickets through authenticated gateway calls"),
-        h("li", null, "Check in passengers"),
-        h("li", null, "Stream chat updates in real time")
-      )
-    ),
-    h(
-      "main",
-      { className: "main" },
-      h(
-        "section",
-        { className: "hero" },
-        h(
-          "div",
-          { className: "hero-card" },
-          h("h2", null, "Flight operations through an AI agent"),
-          h(
-            "p",
-            null,
-            "Try messages like “Find 2 seats from IST to ADB on 2026-04-20” or “Check in Ayse Yilmaz for TK101 on 2026-04-20.”"
-          )
-        )
-      ),
-      h(
-        "section",
-        { className: "chat-panel" },
-        h(
-          "div",
-          { className: "status-bar" },
-          h(
-            "div",
-            { className: "status-pill" },
-            h("span", { className: "dot" }),
-            sessionId ? "Connected" : "Starting session"
-          ),
-          h("div", null, sessionId ? `Session ${sessionId.slice(0, 8)}` : "Preparing")
-        ),
-        h(
-          "div",
-          { className: "messages", ref: messagesRef },
-          ...messages.map((message) =>
-            h(MessageCard, {
-              key: message.id,
-              message
-            })
-          )
-        ),
-        h(
-          "div",
-          { className: "composer" },
-          h(
-            "form",
-            { onSubmit: sendMessage },
-            h("textarea", {
-              value: draft,
-              onChange: (event) => setDraft(event.target.value),
-              placeholder:
-                "Ask to query flights, buy a ticket, check in, or see passengers...",
-              disabled: isSending || !sessionId
-            }),
-            h(
-              "button",
-              {
-                type: "submit",
-                disabled: isSending || !sessionId
-              },
-              isSending ? "Working..." : "Send"
-            )
-          ),
-          h(
-            "div",
-            { className: "helper-row" },
-            h(
-              "div",
-              null,
-              "Gateway-only calls, MCP tool mapping, and SSE chat refresh are active."
-            ),
-            h("div", { className: "error" }, error)
-          )
-        )
-      )
-    )
-  );
+  eventSource.onerror = () => {
+    state.error = "Realtime connection dropped. Refresh the page to reconnect.";
+    eventSource.close();
+    render();
+  };
+};
+
+const bootstrap = async () => {
+  try {
+    const response = await fetch("/api/v1/agent/sessions", {
+      method: "POST"
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || "Unable to create chat session");
+    }
+
+    state.sessionId = payload.id;
+    state.messages = payload.messages || [];
+    state.error = "";
+    render();
+    connectStream();
+  } catch (error) {
+    state.error = error.message;
+    render();
+  }
+};
+
+async function sendMessage(event) {
+  event.preventDefault();
+
+  if (!state.sessionId || !state.draft.trim() || state.isSending) {
+    return;
+  }
+
+  state.isSending = true;
+  state.error = "";
+  render();
+
+  try {
+    const response = await fetch(`/api/v1/agent/sessions/${state.sessionId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: state.draft.trim()
+      })
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || "Unable to send message");
+    }
+
+    state.draft = "";
+  } catch (error) {
+    state.error = error.message;
+  } finally {
+    state.isSending = false;
+    render();
+  }
 }
 
-createRoot(document.getElementById("root")).render(h(App));
+window.addEventListener("beforeunload", () => {
+  state.eventSource?.close();
+});
+
+render();
+bootstrap();
