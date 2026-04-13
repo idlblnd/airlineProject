@@ -14,18 +14,7 @@ app.use(cors({
 }));
 
 app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "SUCCESS",
-    message: "Airline gateway is running",
-    mode: "proxy",
-    apiTarget,
-    routes: {
-      swagger: "/api-docs",
-      swaggerAlias: "/swagger",
-      health: "/health",
-      apiBase: "/api/v1"
-    }
-  });
+  res.redirect("/agent");
 });
 
 app.get("/health", (req, res) => {
