@@ -1,22 +1,28 @@
-const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
+
+// 🔥 PORT
 const PORT = process.env.PORT || process.env.GATEWAY_PORT || 8080;
+
+// 🔥 API TARGET (AWS içinde localhost)
 const apiTarget = (process.env.API_TARGET_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 
+// 🔥 CORS
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+// 🔥 ROOT → AGENT
 app.get("/", (req, res) => {
   res.redirect("/agent");
 });
 
+// 🔥 HEALTH CHECK
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "SUCCESS",
@@ -24,26 +30,35 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/agent", express.static(path.join(__dirname, "public", "agent")));
-app.get("/agent/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "agent", "index.html"));
-});
-
-const proxy = createProxyMiddleware({
+// 🔥 AGENT UI → API'ye proxy
+app.use("/agent", createProxyMiddleware({
   target: apiTarget,
   changeOrigin: true,
-  xfwd: true,
-  logLevel: "warn",
-  onProxyReq(proxyReq, req) {
-    console.log(`Gateway forwarding ${req.method} ${req.originalUrl} -> ${apiTarget}`);
-  }
-});
+  logLevel: "warn"
+}));
 
-app.use("/api", proxy);
-app.use("/api-docs", proxy);
-app.use("/swagger", proxy);
+// 🔥 API ROUTES
+app.use("/api", createProxyMiddleware({
+  target: apiTarget,
+  changeOrigin: true,
+  logLevel: "warn"
+}));
 
+// 🔥 SWAGGER
+app.use("/api-docs", createProxyMiddleware({
+  target: apiTarget,
+  changeOrigin: true,
+  logLevel: "warn"
+}));
+
+app.use("/swagger", createProxyMiddleware({
+  target: apiTarget,
+  changeOrigin: true,
+  logLevel: "warn"
+}));
+
+// 🔥 START
 app.listen(PORT, () => {
-  console.log(`Gateway running on port ${PORT}`);
-  console.log(`Forwarding traffic to ${apiTarget}`);
+  console.log("🚀 Gateway running on port:", PORT);
+  console.log("🔁 Forwarding traffic to:", apiTarget);
 });
