@@ -11,6 +11,9 @@ exports.toQueryFlightsResponseDto = ({ flights, page, size, totalRecords }) => (
     dateFrom: flight.date_from,
     dateTo: flight.date_to,
     duration: flight.duration,
-    capacity: flight.capacity
+    capacity: flight.capacity,
+    departureTime: flight.departure_time
+      ? String(flight.departure_time).slice(0, 5)
+      : null
   }))
 });

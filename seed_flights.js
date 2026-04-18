@@ -21,6 +21,14 @@ const routes = [
 
 const airlines = ['TK', 'PC', 'LH', 'XQ'];
 
+const flightTime = (fn) => {
+  let h = 0;
+  for (let i = 0; i < fn.length; i++) h = (h * 31 + fn.charCodeAt(i)) & 0xffff;
+  const hour = 6 + (h % 15);
+  const min  = (h >> 4) % 4 * 15;
+  return `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}:00`;
+};
+
 async function run() {
   let n = 0;
   let num = 700;
@@ -29,10 +37,11 @@ async function run() {
       for (const al of airlines) {
         const fn = al + num++;
         const cap = 60 + Math.floor(Math.random() * 120);
+        const dep = flightTime(fn);
         try {
           await db.query(
-            'INSERT INTO flights(flight_number, airport_from, airport_to, date_from, date_to, duration, capacity) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [fn, from, to, ds, ds, dur, cap]
+            'INSERT INTO flights(flight_number, airport_from, airport_to, date_from, date_to, duration, capacity, departure_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [fn, from, to, ds, ds, dur, cap, dep]
           );
           n++;
         } catch (e) {

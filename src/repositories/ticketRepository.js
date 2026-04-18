@@ -2,6 +2,14 @@ const db = require("../config/db");
 
 exports.getClient = async () => db.connect();
 
+exports.findExistingTicket = async (flightId, fullName, date, client = db) => {
+  const result = await client.query(
+    `SELECT id FROM tickets WHERE flight_id = $1 AND LOWER(full_name) = LOWER($2) AND date = $3 LIMIT 1`,
+    [flightId, fullName, date]
+  );
+  return result.rows[0];
+};
+
 exports.createTicket = async (flightId, fullName, date, ticketNumber, client = db) => {
   const result = await client.query(
     `INSERT INTO tickets
@@ -16,12 +24,13 @@ exports.createTicket = async (flightId, fullName, date, ticketNumber, client = d
 
 exports.findTicketForCheckIn = async (flightNumber, date, fullName) => {
   const result = await db.query(
-    `SELECT t.id, t.is_checked_in, t.flight_id
+    `SELECT t.id, t.is_checked_in, t.flight_id,
+            f.departure_time, f.duration
      FROM tickets t
      JOIN flights f ON t.flight_id = f.id
      WHERE f.flight_number = $1
        AND t.date = $2
-       AND t.full_name = $3
+       AND LOWER(t.full_name) = LOWER($3)
      LIMIT 1`,
     [flightNumber, date, fullName]
   );

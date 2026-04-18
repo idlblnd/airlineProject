@@ -81,7 +81,7 @@ const addMinutes = (time, mins) => {
 const renderFlightCards = (flights) => {
   if (!flights.length) return `<div class="no-results">No flights found for this route and date.</div>`;
   return flights.map(f => {
-    const dep = flightTime(f.flightNumber);
+    const dep = f.departureTime || flightTime(f.flightNumber);
     const arr = addMinutes(dep, f.duration || 60);
     return `
     <div class="flight-card">
@@ -140,19 +140,19 @@ const renderToolBubble = (msg) => {
     const flight = data.flightNumber || args.flightNumber || "";
     const date   = data.date         || args.date         || "";
     const pax    = data.fullName     || args.fullName     || "";
-    const dep    = flight ? flightTime(flight) : "";
-    const dur    = 60;
-    const arr    = dep ? addMinutes(dep, dur) : "";
+    const dep    = data.departureTime || (flight ? flightTime(flight) : "");
+    const arr    = data.arrivalTime   || (dep ? addMinutes(dep, 60) : "");
+    const bpData = encodeURIComponent(JSON.stringify({pax,flight,date,dep,arr,seat}));
     return `<div class="msg-row tool-row">
       <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
         <div class="trc-header">${ok ? "✅ Check-In Complete" : "❌ Check-In Failed"}</div>
         ${ok ? `<div class="trc-row"><span>Passenger</span><strong>${esc(pax)}</strong></div>
         <div class="trc-row"><span>Flight</span><strong>${esc(flight)}</strong></div>
         <div class="trc-row"><span>Date</span><strong>${esc(date)}</strong></div>
-        <div class="trc-row"><span>Departure</span><strong>${dep}</strong></div>
+        <div class="trc-row"><span>Departure</span><strong>${esc(dep)}</strong></div>
         <div class="trc-row"><span>Seat</span><strong class="seat-num">${esc(seat)}</strong></div>
         <div class="trc-row" style="padding:12px 16px">
-          <button class="bp-btn" onclick="downloadBoardingPass(${JSON.stringify(JSON.stringify({pax,flight,date,dep,arr,seat}))})">🎫 Download Boarding Pass</button>
+          <button class="bp-btn" data-bp="${bpData}">🎫 Download Boarding Pass</button>
         </div>` :
         `<div class="trc-row err-msg">${esc(data.message || "Check-in failed")}</div>`}
       </div>
@@ -333,6 +333,14 @@ const render = () => {
   // form send
   document.getElementById("form-send-btn")?.addEventListener("click", sendFromForm);
 
+  // boarding pass buttons
+  document.querySelectorAll(".bp-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const d = JSON.parse(decodeURIComponent(btn.dataset.bp));
+      downloadBoardingPass(d);
+    });
+  });
+
   // free send
   document.getElementById("send-btn")?.addEventListener("click", sendText);
 };
@@ -424,8 +432,7 @@ function sendFromForm() {
   sendMessage(text);
 }
 
-function downloadBoardingPass(jsonStr) {
-  const d = JSON.parse(jsonStr);
+function downloadBoardingPass(d) {
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="260" font-family="Arial,sans-serif">
   <!-- background -->

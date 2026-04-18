@@ -17,7 +17,12 @@ exports.buyTicket = async ({ flightNumber, date, fullName }) => {
     }
 
     if (flight.capacity <= 0) {
-      throw new AppError("SOLD OUT", 400);
+      throw new AppError("Flight is sold out.", 400);
+    }
+
+    const existing = await ticketRepository.findExistingTicket(flight.id, fullName, date, client);
+    if (existing) {
+      throw new AppError("A ticket for this passenger already exists on this flight.", 400);
     }
 
     await flightRepository.decreaseCapacity(flight.id, client);
@@ -65,7 +70,16 @@ exports.checkIn = async ({ flightNumber, date, fullName }) => {
 
   await ticketRepository.updateCheckIn(ticket.id, seatNumber);
 
-  return toCheckInResponseDto(seatNumber, { flightNumber, date, fullName });
+  const depRaw = ticket.departure_time ? String(ticket.departure_time).slice(0, 5) : null;
+  const arrMins = (ticket.duration || 60);
+  let arrTime = null;
+  if (depRaw) {
+    const [h, m] = depRaw.split(":").map(Number);
+    const total = h * 60 + m + arrMins;
+    arrTime = `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  }
+
+  return toCheckInResponseDto(seatNumber, { flightNumber, date, fullName, departureTime: depRaw, arrivalTime: arrTime });
 };
 
 exports.getPassengers = async ({ flightNumber, date, page = 1, size = 10 }) => {

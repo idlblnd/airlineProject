@@ -3,8 +3,8 @@ const db = require("../config/db");
 exports.createFlight = async (flight) => {
   const result = await db.query(
     `INSERT INTO flights
-      (flight_number, airport_from, airport_to, date_from, date_to, duration, capacity)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (flight_number, airport_from, airport_to, date_from, date_to, duration, capacity, departure_time)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     [
       flight.flightNumber,
@@ -13,7 +13,8 @@ exports.createFlight = async (flight) => {
       flight.dateFrom,
       flight.dateTo,
       flight.duration,
-      flight.capacity
+      flight.capacity,
+      flight.departureTime || null
     ]
   );
 
@@ -22,7 +23,7 @@ exports.createFlight = async (flight) => {
 
 exports.getFlights = async () => {
   const result = await db.query(
-    `SELECT id, flight_number, airport_from, airport_to, date_from, date_to, duration, capacity
+    `SELECT id, flight_number, airport_from, airport_to, date_from, date_to, duration, capacity, departure_time
      FROM flights
      ORDER BY date_from ASC`
   );
@@ -32,14 +33,14 @@ exports.getFlights = async () => {
 
 exports.queryFlights = async (from, to, dateFrom, dateTo, people, limit, offset) => {
   const flightsResult = await db.query(
-    `SELECT id, flight_number, airport_from, airport_to, date_from, date_to, duration, capacity
+    `SELECT id, flight_number, airport_from, airport_to, date_from, date_to, duration, capacity, departure_time
      FROM flights
      WHERE LOWER(airport_from) = LOWER($1)
        AND LOWER(airport_to) = LOWER($2)
        AND date_from >= $3
        AND date_to <= $4
        AND capacity >= $5
-     ORDER BY date_from ASC
+     ORDER BY departure_time ASC, date_from ASC
      LIMIT $6 OFFSET $7`,
     [from, to, dateFrom, dateTo, people, limit, offset]
   );
