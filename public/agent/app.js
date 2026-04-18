@@ -116,30 +116,44 @@ const renderToolBubble = (msg) => {
 
   if (name === "bookFlight") {
     const ok = data.status === "SUCCESS";
-    const inner = data.data || {};
     const args = msg.metadata?.args || {};
+    const ticketNo = data.ticketNumber || "";
+    const flight   = data.flightNumber || args.flightNumber || "";
+    const date     = data.date         || args.date         || "";
+    const pax      = data.fullName     || args.fullName     || "";
     return `<div class="msg-row tool-row">
       <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
         <div class="trc-header">${ok ? "✅ Ticket Booked" : "❌ Booking Failed"}</div>
-        ${ok ? `<div class="trc-row"><span>Ticket No</span><strong>${esc(inner.ticketNumber || "")}</strong></div>
-        <div class="trc-row"><span>Flight</span><strong>${esc(args.flightNumber || "")}</strong></div>
-        <div class="trc-row"><span>Date</span><strong>${esc(args.date || "")}</strong></div>
-        <div class="trc-row"><span>Passenger</span><strong>${esc(args.fullName || "")}</strong></div>` :
+        ${ok ? `<div class="trc-row"><span>Ticket No</span><strong>${esc(ticketNo)}</strong></div>
+        <div class="trc-row"><span>Flight</span><strong>${esc(flight)}</strong></div>
+        <div class="trc-row"><span>Date</span><strong>${esc(date)}</strong></div>
+        <div class="trc-row"><span>Passenger</span><strong>${esc(pax)}</strong></div>` :
         `<div class="trc-row err-msg">${esc(data.message || "Booking failed")}</div>`}
       </div>
     </div>`;
   }
 
   if (name === "checkIn") {
-    const ok = data.status === "SUCCESS";
-    const inner = data.data || {};
+    const ok   = data.status === "SUCCESS";
     const args = msg.metadata?.args || {};
+    const seat   = data.seatNumber   || "";
+    const flight = data.flightNumber || args.flightNumber || "";
+    const date   = data.date         || args.date         || "";
+    const pax    = data.fullName     || args.fullName     || "";
+    const dep    = flight ? flightTime(flight) : "";
+    const dur    = 60;
+    const arr    = dep ? addMinutes(dep, dur) : "";
     return `<div class="msg-row tool-row">
       <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
         <div class="trc-header">${ok ? "✅ Check-In Complete" : "❌ Check-In Failed"}</div>
-        ${ok ? `<div class="trc-row"><span>Passenger</span><strong>${esc(args.fullName || "")}</strong></div>
-        <div class="trc-row"><span>Flight</span><strong>${esc(args.flightNumber || "")}</strong></div>
-        <div class="trc-row"><span>Seat</span><strong class="seat-num">${esc(inner.seatNumber || "")}</strong></div>` :
+        ${ok ? `<div class="trc-row"><span>Passenger</span><strong>${esc(pax)}</strong></div>
+        <div class="trc-row"><span>Flight</span><strong>${esc(flight)}</strong></div>
+        <div class="trc-row"><span>Date</span><strong>${esc(date)}</strong></div>
+        <div class="trc-row"><span>Departure</span><strong>${dep}</strong></div>
+        <div class="trc-row"><span>Seat</span><strong class="seat-num">${esc(seat)}</strong></div>
+        <div class="trc-row" style="padding:12px 16px">
+          <button class="bp-btn" onclick="downloadBoardingPass(${JSON.stringify(JSON.stringify({pax,flight,date,dep,arr,seat}))})">🎫 Download Boarding Pass</button>
+        </div>` :
         `<div class="trc-row err-msg">${esc(data.message || "Check-in failed")}</div>`}
       </div>
     </div>`;
@@ -408,6 +422,52 @@ function sendFromForm() {
 
   const text = form.build(state.formValues);
   sendMessage(text);
+}
+
+function downloadBoardingPass(jsonStr) {
+  const d = JSON.parse(jsonStr);
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="260" font-family="Arial,sans-serif">
+  <!-- background -->
+  <rect width="600" height="260" rx="18" fill="#1e3a5f"/>
+  <rect x="2" y="2" width="596" height="256" rx="16" fill="#1e3a5f" stroke="#3b6cb5" stroke-width="1.5"/>
+
+  <!-- tear line -->
+  <line x1="430" y1="20" x2="430" y2="240" stroke="#3b6cb5" stroke-width="1.5" stroke-dasharray="6,5"/>
+
+  <!-- airline label -->
+  <text x="30" y="44" font-size="12" fill="#90b4e8" letter-spacing="3" text-transform="uppercase">BOARDING PASS</text>
+
+  <!-- route -->
+  <text x="30" y="110" font-size="60" font-weight="700" fill="white" letter-spacing="-2">${d.flight ? d.flight.replace(/[A-Z]{2}/, m => m) : ""}</text>
+
+  <!-- from / to labels -->
+  <text x="30" y="142" font-size="11" fill="#90b4e8">FLIGHT</text>
+  <text x="30" y="162" font-size="16" font-weight="700" fill="white">${d.flight || ""}</text>
+
+  <text x="140" y="142" font-size="11" fill="#90b4e8">DATE</text>
+  <text x="140" y="162" font-size="16" font-weight="700" fill="white">${d.date || ""}</text>
+
+  <text x="260" y="142" font-size="11" fill="#90b4e8">DEPARTURE</text>
+  <text x="260" y="162" font-size="16" font-weight="700" fill="white">${d.dep || ""} → ${d.arr || ""}</text>
+
+  <!-- passenger -->
+  <text x="30" y="204" font-size="11" fill="#90b4e8">PASSENGER</text>
+  <text x="30" y="224" font-size="15" font-weight="700" fill="white">${d.pax || ""}</text>
+
+  <!-- seat box -->
+  <rect x="445" y="50" width="130" height="150" rx="12" fill="#2563eb"/>
+  <text x="510" y="100" font-size="12" fill="#bfdbfe" text-anchor="middle">SEAT</text>
+  <text x="510" y="155" font-size="52" font-weight="900" fill="white" text-anchor="middle">${d.seat || ""}</text>
+</svg>`;
+
+  const blob = new Blob([svg], { type: "image/svg+xml" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `boarding-pass-${d.flight || "flight"}-${d.seat || "seat"}.svg`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 window.addEventListener("beforeunload", () => state.eventSource?.close());

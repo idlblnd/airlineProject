@@ -483,3 +483,17 @@ body {
 .fc-cap { background: #dbeafe; color: var(--brand); padding: 2px 8px; border-radius: 99px; font-weight: 600; }
 
 .no-results { padding: 16px; color: var(--muted); font-size: 13px; text-align: center; }
+
+.bp-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--brand);
+  color: white;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.bp-btn:hover { opacity: 0.85; }
