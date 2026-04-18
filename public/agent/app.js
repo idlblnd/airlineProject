@@ -97,13 +97,15 @@ const renderToolBubble = (msg) => {
 
   if (name === "bookFlight") {
     const ok = data.status === "SUCCESS";
+    const inner = data.data || {};
+    const args = msg.metadata?.args || {};
     return `<div class="msg-row tool-row">
       <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
         <div class="trc-header">${ok ? "✅ Ticket Booked" : "❌ Booking Failed"}</div>
-        ${ok ? `<div class="trc-row"><span>Ticket No</span><strong>${esc(data.ticketNumber || "")}</strong></div>
-        <div class="trc-row"><span>Flight</span><strong>${esc(data.flightNumber || "")}</strong></div>
-        <div class="trc-row"><span>Date</span><strong>${esc(data.date || "")}</strong></div>
-        <div class="trc-row"><span>Passenger</span><strong>${esc(data.fullName || "")}</strong></div>` :
+        ${ok ? `<div class="trc-row"><span>Ticket No</span><strong>${esc(inner.ticketNumber || "")}</strong></div>
+        <div class="trc-row"><span>Flight</span><strong>${esc(args.flightNumber || "")}</strong></div>
+        <div class="trc-row"><span>Date</span><strong>${esc(args.date || "")}</strong></div>
+        <div class="trc-row"><span>Passenger</span><strong>${esc(args.fullName || "")}</strong></div>` :
         `<div class="trc-row err-msg">${esc(data.message || "Booking failed")}</div>`}
       </div>
     </div>`;
@@ -111,12 +113,14 @@ const renderToolBubble = (msg) => {
 
   if (name === "checkIn") {
     const ok = data.status === "SUCCESS";
+    const inner = data.data || {};
+    const args = msg.metadata?.args || {};
     return `<div class="msg-row tool-row">
       <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
         <div class="trc-header">${ok ? "✅ Check-In Complete" : "❌ Check-In Failed"}</div>
-        ${ok ? `<div class="trc-row"><span>Passenger</span><strong>${esc(data.fullName || "")}</strong></div>
-        <div class="trc-row"><span>Flight</span><strong>${esc(data.flightNumber || "")}</strong></div>
-        <div class="trc-row"><span>Seat</span><strong class="seat-num">${esc(data.seatNumber || "")}</strong></div>` :
+        ${ok ? `<div class="trc-row"><span>Passenger</span><strong>${esc(args.fullName || "")}</strong></div>
+        <div class="trc-row"><span>Flight</span><strong>${esc(args.flightNumber || "")}</strong></div>
+        <div class="trc-row"><span>Seat</span><strong class="seat-num">${esc(inner.seatNumber || "")}</strong></div>` :
         `<div class="trc-row err-msg">${esc(data.message || "Check-in failed")}</div>`}
       </div>
     </div>`;
