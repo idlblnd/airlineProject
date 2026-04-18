@@ -29,13 +29,14 @@ exports.findTicketForCheckIn = async (flightNumber, date, fullName) => {
   return result.rows[0];
 };
 
-exports.countCheckedInPassengers = async (flightId) => {
+exports.countCheckedInPassengers = async (flightId, date) => {
   const result = await db.query(
     `SELECT COUNT(*) AS count
      FROM tickets
      WHERE flight_id = $1
+       AND date = $2
        AND is_checked_in = true`,
-    [flightId]
+    [flightId, date]
   );
 
   return Number(result.rows[0].count);
@@ -53,7 +54,7 @@ exports.updateCheckIn = async (ticketId, seatNumber) => {
 
 exports.getCheckedInPassengers = async (flightNumber, date, limit, offset) => {
   const passengersResult = await db.query(
-    `SELECT t.full_name, t.seat_number
+    `SELECT t.full_name, t.seat_number, t.ticket_number
      FROM tickets t
      JOIN flights f ON t.flight_id = f.id
      WHERE f.flight_number = $1

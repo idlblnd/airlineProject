@@ -24,21 +24,21 @@ exports.buyTicket = async ({ flightNumber, date, fullName }) => {
 
     const ticketNumber = `TCK-${Date.now()}`;
 
-    await ticketRepository.createTicket(
+    await ticketRepository.createTicket(                                        
       flight.id,
       fullName,
       date,
-      ticketNumber,
+      ticketNumber,                                                                                               
       client
-    );
+    );                              
 
     await client.query("COMMIT");
-
-    return toBuyTicketResponseDto(ticketNumber);
+                      
+    return toBuyTicketResponseDto(ticketNumber, { flightNumber, date, fullName });
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
-  } finally {
+  } finally {                                         
     client.release();
   }
 };
@@ -51,19 +51,21 @@ exports.checkIn = async ({ flightNumber, date, fullName }) => {
   );
 
   if (!ticket) {
-    throw new AppError("Ticket not found", 404);
+    throw new AppError("No ticket found for this passenger. Please buy a ticket first.", 404);
   }
 
   if (ticket.is_checked_in) {
-    throw new AppError("Already checked in", 400);
+    throw new AppError("Passenger is already checked in.", 400);
   }
 
-  const checkedInCount = await ticketRepository.countCheckedInPassengers(ticket.flight_id);
-  const seatNumber = checkedInCount + 1;
+  const checkedInCount = await ticketRepository.countCheckedInPassengers(ticket.flight_id, date);
+  const n = checkedInCount + 1;
+  const cols = ["A", "B", "C", "D", "E", "F"];
+  const seatNumber = `${Math.floor((n - 1) / 6) + 10}${cols[(n - 1) % 6]}`;
 
   await ticketRepository.updateCheckIn(ticket.id, seatNumber);
 
-  return toCheckInResponseDto(seatNumber);
+  return toCheckInResponseDto(seatNumber, { flightNumber, date, fullName });
 };
 
 exports.getPassengers = async ({ flightNumber, date, page = 1, size = 10 }) => {

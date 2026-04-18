@@ -42,7 +42,7 @@ const FORMS = {
       { id: "flightNumber", label: "Flight Number",  type: "text", placeholder: "e.g. TK101" },
       { id: "date",         label: "Date",           type: "date", default: nextDays(7) },
     ],
-    build: (v) => `Check in ${v.name} for flight ${v.flightNumber} on ${v.date}`,
+    build: (v) => `Check in ${v.name} for ${v.flightNumber} on ${v.date}`,
   },
 };
 
@@ -63,21 +63,40 @@ const esc = (v) =>
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// deterministic departure time from flight number
+const flightTime = (fn) => {
+  let h = 0;
+  for (let i = 0; i < fn.length; i++) h = (h * 31 + fn.charCodeAt(i)) & 0xffff;
+  const hour = 6 + (h % 15);
+  const min  = (h >> 4) % 4 * 15;
+  return `${String(hour).padStart(2,"0")}:${String(min).padStart(2,"0")}`;
+};
+
+const addMinutes = (time, mins) => {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + mins;
+  return `${String(Math.floor(total/60)%24).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
+};
+
 const renderFlightCards = (flights) => {
-  if (!flights.length) return `<div class="no-results">No flights found.</div>`;
-  return flights.map(f => `
+  if (!flights.length) return `<div class="no-results">No flights found for this route and date.</div>`;
+  return flights.map(f => {
+    const dep = flightTime(f.flightNumber);
+    const arr = addMinutes(dep, f.duration || 60);
+    return `
     <div class="flight-card">
-      <div class="fc-route">
-        <span class="fc-iata">${esc(f.airportFrom)}</span>
-        <span class="fc-arrow">✈</span>
-        <span class="fc-iata">${esc(f.airportTo)}</span>
-      </div>
-      <div class="fc-details">
+      <div class="fc-left">
         <span class="fc-fn">${esc(f.flightNumber)}</span>
+        <span class="fc-route-inline">
+          <span class="fc-iata">${esc(f.airportFrom)}</span>
+          <span class="fc-times">${dep} → ${arr}</span>
+          <span class="fc-iata">${esc(f.airportTo)}</span>
+        </span>
         <span class="fc-dur">⏱ ${f.duration} min</span>
-        <span class="fc-cap">${f.capacity} seats</span>
       </div>
-    </div>`).join("");
+      <span class="fc-cap">${f.capacity} seats</span>
+    </div>`;
+  }).join("");
 };
 
 const renderToolBubble = (msg) => {
