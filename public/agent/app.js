@@ -63,6 +63,8 @@ const esc = (v) =>
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+const fmtDate = (d) => d ? String(d).slice(0, 10) : "";
+
 // deterministic departure time from flight number
 const flightTime = (fn) => {
   let h = 0;
@@ -119,7 +121,7 @@ const renderToolBubble = (msg) => {
     const args = msg.metadata?.args || {};
     const ticketNo = data.ticketNumber || "";
     const flight   = data.flightNumber || args.flightNumber || "";
-    const date     = data.date         || args.date         || "";
+    const date     = fmtDate(data.date || args.date || "");
     const pax      = data.fullName     || args.fullName     || "";
     return `<div class="msg-row tool-row">
       <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
@@ -138,7 +140,7 @@ const renderToolBubble = (msg) => {
     const args = msg.metadata?.args || {};
     const seat   = data.seatNumber   || "";
     const flight = data.flightNumber || args.flightNumber || "";
-    const date   = data.date         || args.date         || "";
+    const date   = fmtDate(data.date || args.date || "");
     const pax    = data.fullName     || args.fullName     || "";
     const dep    = data.departureTime || (flight ? flightTime(flight) : "");
     const arr    = data.arrivalTime   || (dep ? addMinutes(dep, 60) : "");
