@@ -10,41 +10,51 @@ The system is designed using a **layered architecture** to ensure separation of 
 
 ### Layers:
 
-- **Controller Layer**
-  - Handles HTTP requests and responses
-- **Service Layer**
-  - Contains business logic and validation
-- **Repository Layer**
-  - Responsible for database interactions
-- **DTO Layer**
-  - Defines request/response structures
+- **Controller Layer** — Handles HTTP requests and responses
+- **Service Layer** — Contains business logic and validation
+- **Repository Layer** — Responsible for database interactions (PostgreSQL via `pg`)
+- **DTO Layer** — Defines request/response structures with Joi validation
+
+### Infrastructure:
+
+- **AWS EC2** — Hosts the Node.js/Express application and API Gateway
+- **AWS RDS (PostgreSQL)** — Primary relational database for flights, tickets, and passengers
+- **Google Firestore** — Real-time storage for AI chat sessions (`chatSessions` collection)
+- **API Gateway** (`gateway.js`) — Runs on port 8080, handles rate limiting and proxies to the app on port 3000
 
 ### Key Design Decisions:
 
 - RESTful API design with versioning (`/api/v1`)
 - Stateless architecture using JWT authentication
 - Separation of read and write operations
-- API Gateway for rate limiting and request control
+- Pluggable chat store: `CHAT_STORE_PROVIDER=memory` (default) or `firestore` via environment variable
+- AI Agent powered by **Groq API** (Llama 3.3 70B) with MCP-based tool routing for flight search, booking, and check-in
+- Duplicate ticket prevention enforced at the database level
+- Seat assignment happens at check-in, not at booking
 
 ---
 
 ## 🧠 Assumptions
 
-- Each ticket belongs to a single flight
-- Each passenger is associated with a ticket
-- Flights must exist before tickets can be purchased
-- Passenger listing is based on flight ID
-- System is optimized for concurrent read-heavy workloads
+- Each ticket belongs to a single passenger on a single flight — no group bookings
+- Flights must exist in the database before tickets can be purchased
+- A passenger must buy a ticket before they can check in — check-in without a ticket is rejected
+- The same passenger cannot buy two tickets for the same flight
+- A passenger who has already checked in cannot check in again
+- Seat numbers are assigned automatically at check-in time, not at booking
+- The AI agent handles only three operations: flight search, booking, and check-in — all other requests are declined
+- Chat sessions are stateful and persist across messages within the same session (stored in Firestore)
 
 ---
 
 ## ⚠️ Issues Encountered
 
-- API Gateway routing and rate limiting configuration issues during cloud deployment
-- Database column naming mismatches during query development
-- Swagger documentation inconsistencies
-- Performance degradation in write operations under high load
-- Environment variable (.env) misconfiguration during deployment
+- **Duplicate ticket enforcement** — Initially handled only at the service layer; moved to database-level constraint to prevent race conditions under concurrent load
+- **Date normalization** — Dates stored in PostgreSQL were returned in different formats depending on the query method; normalized all date fields to `YYYY-MM-DD` in response DTOs to ensure consistency
+- **AI Agent tool isolation** — The LLM occasionally chained `bookFlight` and `checkIn` in a single response; fixed by adding strict `CRITICAL RULES` to the system prompt to enforce single-tool-per-intent behavior
+- **Boarding pass download** — Generating and serving PDFs required careful handling of async streams and file cleanup to avoid memory leaks under load
+- **Cloud provider migration** — The project was initially deployed on Microsoft Azure. When the Azure student credit was exhausted, the entire deployment was migrated to AWS EC2 with RDS, requiring reconfiguration of environment variables, security groups, and database connection strings
+
 
 ---
 
@@ -59,13 +69,13 @@ The system is designed using a **layered architecture** to ensure separation of 
 Deployed Swagger URL:
 
 ```text
-http://<>:8080/api-docs
+http://56.228.29.254:8080/api-docs
 ```
 
 AI Frontend URL:
 
 ```text
-http://<>:8080/
+http://56.228.29.254:8080/
 ```
 
 ---

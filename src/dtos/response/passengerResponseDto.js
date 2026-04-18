@@ -15,6 +15,7 @@ exports.toPassengerListResponseDto = ({
   totalPages: Math.ceil(totalRecords / size),
   passengers: passengers.map((passenger) => ({
     fullName: passenger.full_name,
-    seatNumber: passenger.seat_number
+    seatNumber: passenger.seat_number,
+    ticketNumber: passenger.ticket_number
   }))
 });

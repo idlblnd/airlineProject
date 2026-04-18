@@ -8,7 +8,7 @@ class ChatAgentService {
     await chatStore.addMessage(session.id, {
       role: "assistant",
       content:
-        "Hello. I can query flights, book tickets, check passengers in, and show checked-in passenger lists."
+        "Hello. I can query flights, book tickets, and check passengers in."
     });
 
     return chatStore.getSession(session.id);

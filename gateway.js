@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -6,7 +7,7 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const app = express();
 
 // 🔥 PORT
-const PORT = process.env.PORT || process.env.GATEWAY_PORT || 8080;
+const PORT = process.env.GATEWAY_PORT || 8080;
 
 // 🔥 API TARGET (AWS içinde localhost)
 const apiTarget = (process.env.API_TARGET_URL || "http://127.0.0.1:3000").replace(/\/$/, "");

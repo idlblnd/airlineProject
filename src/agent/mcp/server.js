@@ -14,8 +14,6 @@ class AirlineMcpServer {
         return gatewayClient.buyTicket(args);
       case "checkIn":
         return gatewayClient.checkIn(args);
-      case "listPassengers":
-        return gatewayClient.listPassengers(args);
       default:
         throw new Error(`Unknown MCP tool: ${toolName}`);
     }
