@@ -2,25 +2,99 @@ const agentConfig = require("../config/agentConfig");
 const mcpClient = require("../mcp/client");
 
 const isValidIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || "");
+const getLatestUserMessage = (messages) =>
+  [...messages].reverse().find((message) => message.role === "user");
 
-const mapMessagesToOpenAi = (messages) =>
-  messages.map((message) => ({
-    role: message.role,
-    content: message.content
-  }));
+const inferIntent = (content = "") => {
+  const normalized = content.toLowerCase();
 
-const buildTools = (tools) =>
-  tools.map((tool) => ({
-    type: "function",
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.inputSchema
-    }
-  }));
+  const mentionsCheckIn =
+    normalized.includes("check in") || normalized.includes("check-in");
+  const mentionsBook =
+    normalized.includes("book") || normalized.includes("buy");
+  const mentionsFlight =
+    normalized.includes("flight") ||
+    normalized.includes("flights") ||
+    normalized.includes("from") ||
+    normalized.includes("to");
+
+  if (mentionsCheckIn) {
+    return "checkIn";
+  }
+
+  if (mentionsBook) {
+    return "bookFlight";
+  }
+
+  if (mentionsFlight) {
+    return "queryFlight";
+  }
+
+  return null;
+};
+
+const buildIntentInstruction = (intent) => {
+  switch (intent) {
+    case "queryFlight":
+      return "The latest user request is a flight search. Use only queryFlight. In the final answer, mention only matching flights and flight details.";
+    case "bookFlight":
+      return "The latest user request is a booking request. Use only bookFlight unless required information is missing.";
+    case "checkIn":
+      return "The latest user request is a check-in request. Use only checkIn unless required information is missing.";
+    default:
+      return null;
+  }
+};
+
+const formatQueryFlightAnswer = (result, args = {}) => {
+  const flights = result?.flights || result?.data?.flights || [];
+
+  if (!flights.length) {
+    return `I checked the gateway and could not find matching flights from ${args.airportFrom} to ${args.airportTo} on ${args.dateFrom}.`;
+  }
+
+  const intro = `There are flights available from ${args.airportFrom} to ${args.airportTo} on ${args.dateFrom} for ${args.capacity} passenger${args.capacity > 1 ? "s" : ""}.`;
+  const lines = flights
+    .slice(0, 5)
+    .map((flight) => `- ${flight.flightNumber} with ${flight.capacity} available seats`);
+
+  return `${intro} The available flights are:\n${lines.join("\n")}`;
+};
+
+const formatBookFlightAnswer = (result, args = {}) => {
+  const ticketNumber = result?.ticketNumber || result?.data?.ticketNumber || "created";
+  return `Ticket booked successfully for ${args.fullName}. Ticket number: ${ticketNumber}.`;
+};
+
+const formatCheckInAnswer = (result, args = {}) => {
+  const seatNumber = result?.seatNumber || result?.data?.seatNumber;
+  return `Check-in completed for ${args.fullName}. Seat number: ${seatNumber}.`;
+};
+
+const buildStrictAnswer = (intent, toolResults) => {
+  if (!intent || toolResults.length === 0) {
+    return null;
+  }
+
+  const latestResult = toolResults[toolResults.length - 1];
+
+  if (intent === "queryFlight" && latestResult.name === "queryFlight") {
+    return formatQueryFlightAnswer(latestResult.result, latestResult.args);
+  }
+
+  if (intent === "bookFlight" && latestResult.name === "bookFlight") {
+    return formatBookFlightAnswer(latestResult.result, latestResult.args);
+  }
+
+  if (intent === "checkIn" && latestResult.name === "checkIn") {
+    return formatCheckInAnswer(latestResult.result, latestResult.args);
+  }
+
+  return null;
+};
 
 const buildFallbackResponse = async (messages) => {
-  const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
+  const latestUserMessage = getLatestUserMessage(messages);
 
   if (!latestUserMessage) {
     return {
@@ -43,9 +117,6 @@ const buildFallbackResponse = async (messages) => {
   );
   const checkInMatch = originalContent.match(
     /\bcheck(?:\s|-)?in\s+([A-Za-z][A-Za-z\s'-]+?)\s+\bfor\s+([A-Za-z0-9-]+)\s+\bon\s+(\d{4}-\d{2}-\d{2})/i
-  );
-  const passengerMatch = originalContent.match(
-    /\bpassengers?.*\bfor\s+([A-Za-z0-9-]+)\s+\bon\s+(\d{4}-\d{2}-\d{2})/i
   );
 
   if (queryMatchForward || queryMatchReverse) {
@@ -90,13 +161,12 @@ const buildFallbackResponse = async (messages) => {
     const summary = flights
       .slice(0, 3)
       .map(
-        (flight) =>
-          `${flight.flightNumber} ${flight.airportFrom}-${flight.airportTo} on ${flight.dateFrom} with ${flight.capacity} seats left`
+        (flight) => `${flight.flightNumber} - Duration: ${flight.duration} minutes`
       )
       .join("; ");
 
     return {
-      answer: `I found ${flights.length} matching flight(s). Top options: ${summary}.`,
+      answer: `I found ${flights.length} matching flight(s). Available flights: ${summary}.`,
       toolResults: [{ name: "queryFlight", args, result }]
     };
   }
@@ -145,33 +215,6 @@ const buildFallbackResponse = async (messages) => {
     };
   }
 
-  if (passengerMatch) {
-    const args = {
-      flightNumber: passengerMatch[1].toUpperCase(),
-      date: passengerMatch[2]
-    };
-
-    if (!isValidIsoDate(args.date)) {
-      return {
-        answer: "Please provide the flight date in YYYY-MM-DD format.",
-        toolResults: []
-      };
-    }
-
-    const result = await mcpClient.callTool("listPassengers", args);
-    const passengers = result.passengers || result.data?.passengers || [];
-
-    return {
-      answer: passengers.length
-        ? `There are ${passengers.length} checked-in passenger(s): ${passengers
-            .slice(0, 5)
-            .map((passenger) => `${passenger.fullName} seat ${passenger.seatNumber}`)
-            .join(", ")}.`
-        : `There are no checked-in passengers yet for ${args.flightNumber} on ${args.date}.`,
-      toolResults: [{ name: "listPassengers", args, result }]
-    };
-  }
-
   if (content.includes("check in") || content.includes("check-in")) {
     return {
       answer:
@@ -188,14 +231,6 @@ const buildFallbackResponse = async (messages) => {
     };
   }
 
-  if (content.includes("passenger")) {
-    return {
-      answer:
-        "I can list checked-in passengers. Please share the flight number and date in YYYY-MM-DD format.",
-      toolResults: []
-    };
-  }
-
   if (content.includes("flight") || content.includes("from") || content.includes("to")) {
     return {
       answer:
@@ -206,63 +241,92 @@ const buildFallbackResponse = async (messages) => {
 
   return {
     answer:
-      "I’m ready to help with flight search, booking, check-in, or passenger lists. Tell me what you need.",
+      "I'm ready to help with flight search, booking, or check-in. Tell me what you need.",
     toolResults: []
   };
 };
 
+const buildTools = (tools) =>
+  tools.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema
+    }
+  }));
+
 class LlmService {
   async runAgent(messages) {
-    if (!agentConfig.openAiApiKey) {
+    if (!agentConfig.groqApiKey) {
       return buildFallbackResponse(messages);
     }
 
-    const tools = await mcpClient.listTools();
-    const openAiMessages = [
-      {
-        role: "system",
-        content: agentConfig.systemPrompt
-      },
-      ...mapMessagesToOpenAi(messages)
+    const latestUserMessage = getLatestUserMessage(messages);
+    const latestUserContent = latestUserMessage?.content || "";
+    const latestIntent = inferIntent(latestUserContent);
+    const intentInstruction = buildIntentInstruction(latestIntent);
+
+    const allTools = await mcpClient.listTools();
+    const agentTools = allTools.filter(t => ["queryFlight", "bookFlight", "checkIn"].includes(t.name));
+    const tools = latestIntent
+      ? agentTools.filter((tool) => tool.name === latestIntent)
+      : agentTools;
+    // Only user/assistant messages — stored tool messages lack tool_call_id and break Groq
+    const conversation = [
+      { role: "system", content: agentConfig.systemPrompt },
+      ...(intentInstruction ? [{ role: "system", content: intentInstruction }] : []),
+      ...messages
+        .filter((msg) => msg.role === "user" || msg.role === "assistant")
+        .map((msg) => ({ role: msg.role, content: msg.content }))
     ];
 
     const toolResults = [];
     let iterations = 0;
-    let conversation = [...openAiMessages];
 
-    while (iterations < 5) {
-      iterations += 1;
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    while (iterations < 10) {
+      iterations++;
+
+      const justBooked = toolResults.some(
+        (r) => r.name === "bookFlight" && r.result?.status === "SUCCESS"
+      );
+      const justCheckedIn = toolResults.some(
+        (r) => r.name === "checkIn" && r.result?.status === "SUCCESS"
+      );
+      const toolChoice = justBooked || justCheckedIn ? "none" : "auto";
+
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${agentConfig.openAiApiKey}`
+          Authorization: `Bearer ${agentConfig.groqApiKey}`
         },
         body: JSON.stringify({
-          model: agentConfig.openAiModel,
-          temperature: 0.2,
+          model: agentConfig.groqModel,
+          temperature: 0,
           messages: conversation,
           tools: buildTools(tools),
-          tool_choice: "auto"
+          tool_choice: toolChoice
         })
       });
 
       const payload = await response.json();
 
       if (!response.ok) {
-        const message = payload.error?.message || "OpenAI request failed";
+        const message = payload.error?.message || "Groq API request failed";
         throw new Error(message);
       }
 
       const choice = payload.choices?.[0]?.message;
 
       if (!choice) {
-        throw new Error("OpenAI did not return a message");
+        throw new Error("Groq did not return a message");
       }
 
       if (!choice.tool_calls || choice.tool_calls.length === 0) {
+        const strictAnswer = buildStrictAnswer(latestIntent, toolResults);
         return {
-          answer: choice.content || "I could not generate a response.",
+          answer: strictAnswer || choice.content || "I could not generate a response.",
           toolResults
         };
       }
@@ -277,11 +341,7 @@ class LlmService {
         const args = JSON.parse(toolCall.function.arguments || "{}");
         const result = await mcpClient.callTool(toolCall.function.name, args);
 
-        toolResults.push({
-          name: toolCall.function.name,
-          args,
-          result
-        });
+        toolResults.push({ name: toolCall.function.name, args, result });
 
         conversation.push({
           role: "tool",
@@ -291,7 +351,15 @@ class LlmService {
       }
     }
 
-    throw new Error("Agent reached the maximum number of tool iterations");
+    // Return whatever we have instead of throwing
+    const summary = toolResults.map(r => r.name).join(", ");
+    const strictAnswer = buildStrictAnswer(latestIntent, toolResults);
+    return {
+      answer:
+        strictAnswer ||
+        `I completed the requested actions (${summary}) but could not generate a final summary. Please try again.`,
+      toolResults
+    };
   }
 }
 

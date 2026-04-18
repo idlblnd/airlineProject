@@ -1,251 +1,391 @@
+const API = "/api/v1/agent";
+
+const ACTIONS = [
+  { id: "queryFlight", icon: "🔍", label: "Query Flight" },
+  { id: "bookFlight",  icon: "✈",  label: "Book Flight"  },
+  { id: "checkIn",     icon: "✅", label: "Check In"     },
+];
+
+const AIRPORTS = ["IST", "ADB", "ESB", "SAW", "AYT", "BJV", "GZT", "TZX", "VAN", "ERZ"];
+
+const today = () => new Date().toISOString().split("T")[0];
+const nextDays = (n) => {
+  const d = new Date(); d.setDate(d.getDate() + n);
+  return d.toISOString().split("T")[0];
+};
+
+// form field definitions per action
+const FORMS = {
+  queryFlight: {
+    title: "Search Flights",
+    fields: [
+      { id: "from",     label: "From",       type: "select",  options: AIRPORTS, placeholder: "IST" },
+      { id: "to",       label: "To",         type: "select",  options: AIRPORTS, placeholder: "ADB" },
+      { id: "date",     label: "Date",       type: "date",    default: nextDays(7) },
+      { id: "n",        label: "Passengers", type: "number",  default: "1", min: 1, max: 9 },
+    ],
+    build: (v) => `Find flights from ${v.from} to ${v.to} on ${v.date} for ${v.n} passenger${v.n > 1 ? "s" : ""}`,
+  },
+  bookFlight: {
+    title: "Book a Ticket",
+    fields: [
+      { id: "flightNumber", label: "Flight Number", type: "text", placeholder: "e.g. TK101" },
+      { id: "date",         label: "Date",          type: "date", default: nextDays(7) },
+      { id: "name",         label: "Passenger Name",type: "text", placeholder: "e.g. John Doe" },
+    ],
+    build: (v) => `Book flight ${v.flightNumber} on ${v.date} for ${v.name}`,
+  },
+  checkIn: {
+    title: "Check In Passenger",
+    fields: [
+      { id: "name",         label: "Passenger Name", type: "text", placeholder: "e.g. John Doe" },
+      { id: "flightNumber", label: "Flight Number",  type: "text", placeholder: "e.g. TK101" },
+      { id: "date",         label: "Date",           type: "date", default: nextDays(7) },
+    ],
+    build: (v) => `Check in ${v.name} for flight ${v.flightNumber} on ${v.date}`,
+  },
+};
+
 const state = {
   sessionId: "",
   messages: [],
   draft: "",
   isSending: false,
   error: "",
-  eventSource: null
+  activeAction: null,
+  connected: false,
+  eventSource: null,
+  formValues: {},
 };
 
-const root = document.getElementById("root");
-const quickPrompts = [
-  "Find 2 seats from IST to ADB on 2026-04-20",
-  "Book a ticket for Ayse Yilmaz on TK101 for 2026-04-20",
-  "Check in Ayse Yilmaz for TK101 on 2026-04-20",
-  "Show checked-in passengers for TK101 on 2026-04-20"
-];
+const esc = (v) =>
+  String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-const getMessageLabel = (message) => {
-  if (message.role === "tool") {
-    return message.metadata?.toolName || "Tool";
-  }
-
-  if (message.role === "assistant") {
-    return "Agent";
-  }
-
-  return "You";
+const renderFlightCards = (flights) => {
+  if (!flights.length) return `<div class="no-results">No flights found.</div>`;
+  return flights.map(f => `
+    <div class="flight-card">
+      <div class="fc-route">
+        <span class="fc-iata">${esc(f.airportFrom)}</span>
+        <span class="fc-arrow">✈</span>
+        <span class="fc-iata">${esc(f.airportTo)}</span>
+      </div>
+      <div class="fc-details">
+        <span class="fc-fn">${esc(f.flightNumber)}</span>
+        <span class="fc-dur">⏱ ${f.duration} min</span>
+        <span class="fc-cap">${f.capacity} seats</span>
+      </div>
+    </div>`).join("");
 };
 
-const escapeHtml = (value) =>
-  String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+const renderToolBubble = (msg) => {
+  const name = msg.metadata?.toolName || "tool";
+  let data = {};
+  try { data = JSON.parse(msg.content); } catch {}
 
-const renderMessages = () =>
-  state.messages
-    .map((message) => {
-      const content =
-        message.role === "tool"
-          ? `<pre>${escapeHtml(message.content)}</pre>`
-          : `<div>${escapeHtml(message.content)}</div>`;
+  if (name === "queryFlight") {
+    const flights = data.flights || [];
+    return `<div class="msg-row tool-row">
+      <div class="tool-result-card">
+        <div class="trc-header">🔍 Available Flights</div>
+        <div class="flights-grid">${renderFlightCards(flights)}</div>
+      </div>
+    </div>`;
+  }
 
-      return `
-        <article class="message ${escapeHtml(message.role)}">
-          <div class="message-label">${escapeHtml(getMessageLabel(message))}</div>
-          ${content}
-        </article>
-      `;
-    })
-    .join("");
+  if (name === "bookFlight") {
+    const ok = data.status === "SUCCESS";
+    return `<div class="msg-row tool-row">
+      <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
+        <div class="trc-header">${ok ? "✅ Ticket Booked" : "❌ Booking Failed"}</div>
+        ${ok ? `<div class="trc-row"><span>Ticket No</span><strong>${esc(data.ticketNumber || "")}</strong></div>
+        <div class="trc-row"><span>Flight</span><strong>${esc(data.flightNumber || "")}</strong></div>
+        <div class="trc-row"><span>Date</span><strong>${esc(data.date || "")}</strong></div>
+        <div class="trc-row"><span>Passenger</span><strong>${esc(data.fullName || "")}</strong></div>` :
+        `<div class="trc-row err-msg">${esc(data.message || "Booking failed")}</div>`}
+      </div>
+    </div>`;
+  }
+
+  if (name === "checkIn") {
+    const ok = data.status === "SUCCESS";
+    return `<div class="msg-row tool-row">
+      <div class="tool-result-card ${ok ? "trc-ok" : "trc-err"}">
+        <div class="trc-header">${ok ? "✅ Check-In Complete" : "❌ Check-In Failed"}</div>
+        ${ok ? `<div class="trc-row"><span>Passenger</span><strong>${esc(data.fullName || "")}</strong></div>
+        <div class="trc-row"><span>Flight</span><strong>${esc(data.flightNumber || "")}</strong></div>
+        <div class="trc-row"><span>Seat</span><strong class="seat-num">${esc(data.seatNumber || "")}</strong></div>` :
+        `<div class="trc-row err-msg">${esc(data.message || "Check-in failed")}</div>`}
+      </div>
+    </div>`;
+  }
+
+  return ""; // hide unknown tool results
+};
+
+const renderMessages = () => {
+  if (!state.messages.length) {
+    return `<div class="empty-state">
+      <div class="empty-icon">✈</div>
+      <div>Select an action from the sidebar or type a message to get started.</div>
+    </div>`;
+  }
+  return state.messages.map((msg) => {
+    if (msg.role === "tool") return renderToolBubble(msg);
+    const isUser = msg.role === "user";
+    return `<div class="msg-row ${isUser ? "user" : "agent"}">
+      <div class="msg-avatar ${isUser ? "user-av" : ""}">${isUser ? "You" : "✈"}</div>
+      <div class="bubble ${isUser ? "user" : "agent"}">${esc(msg.content)}</div>
+    </div>`;
+  }).join("") + (state.isSending ? `
+    <div class="msg-row agent">
+      <div class="msg-avatar">✈</div>
+      <div class="bubble agent"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+    </div>` : "");
+};
+
+const renderActionForm = () => {
+  if (!state.activeAction) return "";
+  const form = FORMS[state.activeAction];
+  if (!form) return "";
+
+  const fields = form.fields.map((f) => {
+    const val = esc(state.formValues[f.id] ?? f.default ?? "");
+    if (f.type === "select") {
+      const opts = f.options.map((o) =>
+        `<option value="${o}" ${state.formValues[f.id] === o ? "selected" : ""}>${o}</option>`
+      ).join("");
+      return `<div class="form-field">
+        <label class="form-label">${f.label}</label>
+        <select class="form-input" data-field="${f.id}">
+          <option value="">— select —</option>
+          ${opts}
+        </select>
+      </div>`;
+    }
+    if (f.type === "number") {
+      return `<div class="form-field">
+        <label class="form-label">${f.label}</label>
+        <input class="form-input" type="number" data-field="${f.id}" value="${val}" min="${f.min||1}" max="${f.max||9}" />
+      </div>`;
+    }
+    if (f.type === "date") {
+      return `<div class="form-field">
+        <label class="form-label">${f.label}</label>
+        <input class="form-input" type="date" data-field="${f.id}" value="${val||form.fields.find(x=>x.id===f.id)?.default||""}" />
+      </div>`;
+    }
+    return `<div class="form-field">
+      <label class="form-label">${f.label}</label>
+      <input class="form-input" type="text" data-field="${f.id}" value="${val}" placeholder="${esc(f.placeholder||"")}" />
+    </div>`;
+  }).join("");
+
+  return `<div class="action-form" id="action-form">
+    <div class="form-title">${ACTIONS.find(a=>a.id===state.activeAction)?.icon} ${form.title}</div>
+    <div class="form-grid">${fields}</div>
+    <button class="form-send-btn" id="form-send-btn">Send →</button>
+  </div>`;
+};
 
 const render = () => {
-  const promptMarkup = quickPrompts
-    .map(
-      (prompt) => `
-        <button class="prompt-chip" type="button" data-prompt="${escapeHtml(prompt)}">
-          ${escapeHtml(prompt)}
-        </button>
-      `
-    )
-    .join("");
-
-  root.innerHTML = `
+  const act = ACTIONS.find((a) => a.id === state.activeAction);
+  document.getElementById("root").innerHTML = `
     <div class="shell">
-      <main class="main main-full">
-        <section class="hero hero-compact">
-          <div class="hero-card hero-single">
-            <div class="hero-copy">
-              <p class="hero-kicker">Blue Sky Travel Desk</p>
-              <h1>Airline AI Agent</h1>
-              <p>
-                Tell me where you want to go, who is flying, or who needs check-in.
-                I can search flights, book tickets, and manage passengers in one chat.
-              </p>
-            </div>
-            <div class="hero-visual" aria-hidden="true">
-              <div class="sun"></div>
-              <div class="cloud cloud-one"></div>
-              <div class="cloud cloud-two"></div>
-              <div class="plane-trail"></div>
-              <div class="plane">✈</div>
-            </div>
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <div class="logo-icon">✈</div>
+          <div>
+            <div class="logo-text">AI Agent</div>
+            <div class="logo-sub">Flight Actions</div>
           </div>
-        </section>
-        <section class="chat-panel">
-          <div class="status-bar">
-            <div class="status-pill">
-              <span class="dot"></span>
-              ${state.sessionId ? "Connected" : "Starting session"}
-            </div>
-            <div>${state.sessionId ? `Session ${escapeHtml(state.sessionId.slice(0, 8))}` : "Preparing"}</div>
-          </div>
-          <div class="prompt-strip">
-            <div class="prompt-title">Try asking:</div>
-            <div class="prompt-list">${promptMarkup}</div>
-          </div>
-          <div class="messages" id="messages">${renderMessages()}</div>
+        </div>
+
+        <div class="sidebar-greeting">
+          <div class="s-avatar">🤖</div>
+          <div class="greeting-text">Hello! How can I assist you today?</div>
+        </div>
+
+        <div class="sidebar-label">Actions</div>
+        ${ACTIONS.map((a) => `
+          <button class="action-btn${state.activeAction === a.id ? " active" : ""}" data-action="${a.id}">
+            <span class="btn-icon">${a.icon}</span>${a.label}
+          </button>`).join("")}
+
+        <div class="sidebar-spacer"></div>
+        <div class="conn-status">
+          <div class="conn-dot${state.connected ? " on" : ""}"></div>
+          ${state.connected ? "Connected" : "Connecting…"}
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="chat-header">
+          <div class="chat-header-title">${act ? act.icon + " " + act.label : "✈ Flight Assistant"}</div>
+          <div class="chat-header-sub">${act ? "Fill in the form below or type freely" : "Select an action or type a message"}</div>
+        </div>
+
+        <div class="messages" id="messages">${renderMessages()}</div>
+
+        ${renderActionForm()}
+
+        <div class="composer-wrap">
+          ${state.error ? `<div class="err-bar">${esc(state.error)}</div>` : ""}
           <div class="composer">
-            <div class="composer-title">Ask your flight assistant</div>
-            <form id="composer-form">
-              <textarea
-                id="composer-input"
-                placeholder="Where would you like to fly today?"
-                ${state.isSending || !state.sessionId ? "disabled" : ""}
-              >${escapeHtml(state.draft)}</textarea>
-              <button type="submit" ${state.isSending || !state.sessionId ? "disabled" : ""}>
-                ${state.isSending ? "Working..." : "Send"}
-              </button>
-            </form>
-            <div class="helper-row">
-              <div>Gateway routing, MCP tool mapping, and live chat refresh are active.</div>
-              <div class="error">${escapeHtml(state.error)}</div>
-            </div>
+            <textarea id="draft" rows="1"
+              placeholder="${act ? "Or type freely…" : "Ask me anything about flights…"}"
+              ${state.isSending || !state.sessionId ? "disabled" : ""}
+            >${esc(state.draft)}</textarea>
+            <button class="send-btn" id="send-btn"
+              ${state.isSending || !state.sessionId || !state.draft.trim() ? "disabled" : ""}>↑</button>
           </div>
-        </section>
-    </div>
-  `;
+          <div class="composer-hint">Gateway → MCP → Groq LLaMA 3.3</div>
+        </div>
+      </main>
+    </div>`;
 
-  const form = document.getElementById("composer-form");
-  const input = document.getElementById("composer-input");
-  const messages = document.getElementById("messages");
-  const promptButtons = document.querySelectorAll(".prompt-chip");
+  // scroll
+  const msgs = document.getElementById("messages");
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
-  if (form) {
-    form.addEventListener("submit", sendMessage);
-  }
-
-  if (input) {
-    input.addEventListener("input", (event) => {
-      state.draft = event.target.value;
+  // textarea
+  const ta = document.getElementById("draft");
+  if (ta) {
+    ta.addEventListener("input", (e) => {
+      state.draft = e.target.value;
+      e.target.style.height = "auto";
+      e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px";
+      document.getElementById("send-btn").disabled =
+        !state.draft.trim() || state.isSending || !state.sessionId;
+    });
+    ta.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); }
     });
   }
 
-  if (messages) {
-    messages.scrollTop = messages.scrollHeight;
-  }
-
-  promptButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      state.draft = button.dataset.prompt || "";
+  // action buttons
+  document.querySelectorAll(".action-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.action;
+      state.activeAction = id === state.activeAction ? null : id;
+      if (state.activeAction) {
+        // seed date defaults
+        const form = FORMS[state.activeAction];
+        form?.fields.forEach((f) => {
+          if (f.default && !state.formValues[f.id]) {
+            state.formValues[f.id] = f.default;
+          }
+        });
+      }
       render();
-      document.getElementById("composer-input")?.focus();
     });
   });
+
+  // form field listeners
+  document.querySelectorAll(".form-input").forEach((input) => {
+    input.addEventListener("change", (e) => {
+      state.formValues[e.target.dataset.field] = e.target.value;
+    });
+    input.addEventListener("input", (e) => {
+      state.formValues[e.target.dataset.field] = e.target.value;
+    });
+  });
+
+  // form send
+  document.getElementById("form-send-btn")?.addEventListener("click", sendFromForm);
+
+  // free send
+  document.getElementById("send-btn")?.addEventListener("click", sendText);
 };
 
 const connectStream = () => {
-  if (!state.sessionId) {
-    return;
-  }
-
-  if (state.eventSource) {
-    state.eventSource.close();
-  }
-
-  const eventSource = new EventSource(`/api/v1/agent/sessions/${state.sessionId}/stream`);
-  state.eventSource = eventSource;
-
-  eventSource.onmessage = (event) => {
-    const payload = JSON.parse(event.data);
-
-    if (payload.type === "snapshot") {
-      state.messages = payload.session.messages || [];
-      render();
-      return;
-    }
-
-    if (payload.type === "message") {
-      const exists = state.messages.some((message) => message.id === payload.message.id);
-      if (!exists) {
-        state.messages = [...state.messages, payload.message];
+  if (!state.sessionId) return;
+  state.eventSource?.close();
+  const es = new EventSource(`${API}/sessions/${state.sessionId}/stream`);
+  state.eventSource = es;
+  es.onopen = () => { state.connected = true; render(); };
+  es.onmessage = (e) => {
+    const p = JSON.parse(e.data);
+    if (p.type === "snapshot") { state.messages = p.session.messages || []; render(); }
+    else if (p.type === "message") {
+      if (!state.messages.some((m) => m.id === p.message.id)) {
+        state.messages = [...state.messages, p.message];
         render();
       }
     }
   };
-
-  eventSource.onerror = () => {
-    state.error = "Realtime connection dropped. Refresh the page to reconnect.";
-    eventSource.close();
-    render();
+  es.onerror = () => {
+    state.connected = false;
+    state.error = "Connection lost. Refresh to reconnect.";
+    es.close(); render();
   };
 };
 
 const bootstrap = async () => {
+  render();
   try {
-    const response = await fetch("/api/v1/agent/sessions", {
-      method: "POST"
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.message || "Unable to create chat session");
-    }
-
-    state.sessionId = payload.id;
-    state.messages = payload.messages || [];
-    state.error = "";
+    const res  = await fetch(`${API}/sessions`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message);
+    state.sessionId = data.id;
+    state.messages  = data.messages || [];
+    state.connected = true;
     render();
     connectStream();
-  } catch (error) {
-    state.error = error.message;
-    render();
+  } catch (err) {
+    state.error = err.message; render();
   }
 };
 
-async function sendMessage(event) {
-  event.preventDefault();
-
-  if (!state.sessionId || !state.draft.trim() || state.isSending) {
-    return;
-  }
-
+async function sendMessage(text) {
+  if (!text || !state.sessionId || state.isSending) return;
+  state.draft = "";
   state.isSending = true;
   state.error = "";
+  state.messages = [...state.messages, { id: `tmp-${Date.now()}`, role: "user", content: text }];
   render();
-
   try {
-    const response = await fetch(`/api/v1/agent/sessions/${state.sessionId}/messages`, {
+    const res  = await fetch(`${API}/sessions/${state.sessionId}/messages`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message: state.draft.trim()
-      })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
     });
-
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.message || "Unable to send message");
-    }
-
-    state.draft = "";
-  } catch (error) {
-    state.error = error.message;
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message);
+    state.messages = data.session?.messages || state.messages;
+  } catch (err) {
+    state.error = err.message;
+    state.messages = state.messages.filter((m) => !String(m.id).startsWith("tmp-"));
   } finally {
-    state.isSending = false;
-    render();
+    state.isSending = false; render();
   }
 }
 
-window.addEventListener("beforeunload", () => {
-  state.eventSource?.close();
-});
+function sendText() {
+  sendMessage(state.draft.trim());
+}
 
-render();
+function sendFromForm() {
+  const form = FORMS[state.activeAction];
+  if (!form) return;
+
+  // read current field values from DOM
+  document.querySelectorAll(".form-input").forEach((el) => {
+    state.formValues[el.dataset.field] = el.value;
+  });
+
+  // validate all fields filled
+  const missing = form.fields.find((f) => !state.formValues[f.id]?.trim());
+  if (missing) {
+    state.error = `Please fill in: ${missing.label}`;
+    render(); return;
+  }
+
+  const text = form.build(state.formValues);
+  sendMessage(text);
+}
+
+window.addEventListener("beforeunload", () => state.eventSource?.close());
 bootstrap();

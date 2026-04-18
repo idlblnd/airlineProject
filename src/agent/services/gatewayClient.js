@@ -7,8 +7,8 @@ class GatewayClient {
     this.token = null;
   }
 
-  async ensureAuthToken() {
-    if (this.token) {
+  async ensureAuthToken(forceRefresh = false) {
+    if (this.token && !forceRefresh) {
       return this.token;
     }
 
@@ -34,28 +34,34 @@ class GatewayClient {
   }
 
   async request(path, { method = "GET", body, auth = false, query } = {}) {
-    const headers = {
-      "Content-Type": "application/json"
+    const doRequest = async () => {
+      const headers = { "Content-Type": "application/json" };
+
+      if (auth) {
+        const token = await this.ensureAuthToken();
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const url = new URL(`${this.baseUrl}${path}`);
+      if (query) url.search = new URLSearchParams(query).toString();
+
+      return fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+      });
     };
 
-    if (auth) {
-      const token = await this.ensureAuthToken();
-      headers.Authorization = `Bearer ${token}`;
+    let response = await doRequest();
+    let payload = await response.json().catch(() => ({}));
+
+    // Token expired — refresh once and retry
+    if (response.status === 401 && auth) {
+      this.token = null;
+      await this.ensureAuthToken(true);
+      response = await doRequest();
+      payload = await response.json().catch(() => ({}));
     }
-
-    const url = new URL(`${this.baseUrl}${path}`);
-
-    if (query) {
-      url.search = new URLSearchParams(query).toString();
-    }
-
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined
-    });
-
-    const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       const message = payload.message || payload.error || "Gateway request failed";
