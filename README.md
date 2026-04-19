@@ -1,4 +1,4 @@
-# ✈️ Airline Management API
+# ✈️ Airline Management API and Chatbot System
 
 A production-ready RESTful API for managing airline operations such as flights, ticket purchases, and passenger listing.
 
@@ -67,11 +67,6 @@ The system is designed using a **layered architecture** to ensure separation of 
 
 ## 📄 API Documentation
 
-Deployed Swagger URL:
-
-```text
-http://56.228.29.254:8080/api-docs
-```
 
 AI Frontend URL:
 
@@ -164,5 +159,5 @@ To improve scalability, database indexing, caching mechanisms (e.g., Redis), con
 ---
 
 ## DEMO
-https://drive.google.com/file/d/1RjGHbWgO9EtZMmdz8WPp3VRge0h3NciO/view?usp=share_link
+https://drive.google.com/file/d/1VdQGZx0QVDGb0IOijUYowQMT8qaXLF6i/view?usp=share_link
 
