@@ -44,6 +44,7 @@ The system is designed using a **layered architecture** to ensure separation of 
 - Seat numbers are assigned automatically at check-in time, not at booking
 - The AI agent handles only three operations: flight search, booking, and check-in — all other requests are declined
 - Chat sessions are stateful and persist across messages within the same session (stored in Firestore)
+- The chatbot endpoints (`/api/v1/agent/sessions/*`) do not enforce per-user authentication — the AI agent authenticates against the API using its own service account credentials (configured via `AUTH_USERNAME` / `AUTH_PASSWORD` env vars). In a production system, chat sessions would be tied to user JWT tokens to prevent unauthorized bookings
 
 ---
 
