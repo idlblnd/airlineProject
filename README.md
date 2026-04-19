@@ -83,7 +83,7 @@ The project follows a **layered service architecture** combined with an **agent 
 AI Frontend URL:
 
 ```text
-[http://56.228.29.254:8080/](http://56.228.29.254/agent/)
+http://56.228.29.254/agent/
 ```
 
 ---
