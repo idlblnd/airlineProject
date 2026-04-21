@@ -17,9 +17,9 @@ server.registerTool(
       airportTo:   z.string().describe("Destination airport IATA code, e.g. ADB"),
       dateFrom:    z.string().describe("Travel date in YYYY-MM-DD format"),
       dateTo:      z.string().optional().describe("Optional end date for range search in YYYY-MM-DD format"),
-      capacity:    z.number().int().describe("Number of passengers (seats needed)"),
-      page:        z.number().int().optional().describe("Page number, default 1"),
-      size:        z.number().int().optional().describe("Results per page, default 10")
+      capacity:    z.coerce.number().int().describe("Number of passengers (seats needed)"),
+      page:        z.coerce.number().int().optional().describe("Page number, default 1"),
+      size:        z.coerce.number().int().optional().describe("Results per page, default 10")
     }
   },
   async (args) => {
