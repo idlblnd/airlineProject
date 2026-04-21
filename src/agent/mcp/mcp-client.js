@@ -39,7 +39,15 @@ class AirlineMcpClient {
     await this._ensureConnected();
     const response = await this._client.callTool({ name, arguments: args });
     const text = response.content?.find((c) => c.type === "text")?.text;
-    return text ? JSON.parse(text) : response;
+    if (response.isError) {
+      throw new Error(text || "MCP tool call failed");
+    }
+    if (!text) return response;
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(text);
+    }
   }
 }
 
