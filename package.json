@@ -7,9 +7,11 @@
         "start": "node server.js",
         "gateway": "node gateway.js",
         "dev": "nodemon server.js",
-        "dev:gateway": "nodemon gateway.js"
+        "dev:gateway": "nodemon gateway.js",
+        "start:mcp": "node src/agent/mcp/mcp-server.js"
     },
     "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.29.0",
         "chart.js": "^4.5.1",
         "chartjs-node-canvas": "^5.0.0",
         "cors": "^2.8.6",
